@@ -28,7 +28,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   return (
     <motion.div
       className={cn(
-        "glass-card p-6 relative overflow-hidden",
+        "glass-card p-6 relative overflow-hidden flex flex-col",
         hoverEffect && "hover:-translate-y-1 duration-300",
         glowStyles[glowColor],
         className
@@ -41,7 +41,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     >
       {/* Dynamic Glow Backlight Inside the Card */}
       <div className="absolute -inset-px bg-gradient-to-br from-accent-cyan/5 to-accent-emerald/5 opacity-0 hover:opacity-100 transition-opacity duration-500 rounded-[inherit] pointer-events-none" />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 h-full w-full flex flex-col flex-grow">{children}</div>
     </motion.div>
   );
 };

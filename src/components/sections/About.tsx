@@ -47,9 +47,9 @@ export const About: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Aspect: Profile Avatar Frame */}
-        <div className="lg:col-span-5 flex justify-center">
+        <div className="lg:col-span-5 flex justify-center w-full">
           <GlassCard hoverEffect={false} className="p-2 w-full max-w-md aspect-square overflow-hidden group">
-            <div className="relative w-full h-full rounded-xl overflow-hidden bg-slate-800/20">
+            <div className="relative w-full h-full flex flex-col flex-grow rounded-xl overflow-hidden bg-slate-800/20">
               {/* Overlay Glass Highlight */}
               <div className="absolute inset-0 bg-gradient-to-tr from-accent-cyan/20 to-accent-emerald/10 opacity-30 z-10 duration-500 group-hover:opacity-0" />
               
@@ -60,10 +60,10 @@ export const About: React.FC = () => {
                 <Image
                   src={avatarUrl}
                   alt={fullName}
-                  width={400}
-                  height={400}
+                  width={350}
+                  height={350}
                   priority
-                  className="object-cover w-full h-full rounded-xl opacity-75 group-hover:opacity-95 group-hover:scale-105 duration-500 z-10"
+                  className="object-contain w-[88%] h-[88%] opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 z-10"
                 />
                 
                 {/* Animated Particle Rings Inside Avatar Space */}
