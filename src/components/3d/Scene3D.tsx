@@ -1,256 +1,184 @@
 "use client";
 
-import React, { Suspense, useEffect, useRef, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { AdaptiveDpr, useTexture } from "@react-three/drei";
-import * as THREE from "three";
-import Particles from "./Particles";
-import CanvasLoader from "./CanvasLoader";
+import React, { useEffect, useRef } from "react";
 
-interface PlanetData {
-  name: string;
-  radius: number;
-  orbitRadius: number;
-  speed: number;
-  color: string;
-  roughness: number;
-  metalness: number;
-  textureUrl: string;
-  hasClouds?: boolean;
-}
-
-// 4 Main photorealistic celestial bodies matching requested timeline
-const PLANETS: PlanetData[] = [
-  { name: "Sun", radius: 1.8, orbitRadius: 0, speed: 0, color: "#f59e0b", roughness: 0.1, metalness: 0, textureUrl: "/assets/textures/sun.png" },
-  { name: "Earth", radius: 0.5, orbitRadius: 4.8, speed: 0.35, color: "#0ea5e9", roughness: 0.4, metalness: 0.1, textureUrl: "/assets/textures/earth.png", hasClouds: true },
-  { name: "Mars", radius: 0.36, orbitRadius: 6.8, speed: 0.28, color: "#ef4444", roughness: 0.7, metalness: 0.1, textureUrl: "/assets/textures/mars.png" },
-  { name: "Jupiter", radius: 1.05, orbitRadius: 9.2, speed: 0.18, color: "#f97316", roughness: 0.5, metalness: 0, textureUrl: "/assets/textures/jupiter.png" },
+const CODE_SNIPPETS = [
+  "await producer.ProduceAsync(\"events\", message);",
+  "public void ProcessOutboxQueue() {",
+  "SELECT TOP 100 * FROM OperationsLog WITH (NOLOCK);",
+  "var session = new EventStreamSession();",
+  "Checkmarx.ScanCompliance(policy: Enterprise);",
+  "SignalR.Hub.Clients.All.SendAsync(\"TelemetryUpdate\", data);",
+  "AWS.SecretsManager.GetSecret(\"DatabaseConnectionString\");",
+  "using (var transaction = dbContext.Database.BeginTransaction())",
+  "Apache.Kafka.Stream.Pipeline.Initialize();",
+  "public async Task<IActionResult> GetRealTimeDash() {",
+  "reCAPTCHA.VerifyClientToken(token);",
+  "01010101101011001100111010110111",
+  "SYSTEM_HEALTH: OK | KAFKA_LAG: 0ms | DB_LOAD: 12%",
+  "SpecFlow.Feature(\"ManufacturingExecutionSystem\");",
+  "[TransactionBoundOutbox] eventId = Guid.NewGuid();",
+  "WCF.ServiceHost.Open();",
+  "Worker.BackgroundService.ExecuteAsync(token);",
+  "System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;",
+  "ORDER BY Timestamp DESC OPTION (RECOMPILE);",
+  "C#", ".NET Core", "Apache Kafka", "SQL Server", "SignalR", "AWS", "Checkmarx", "Outbox"
 ];
 
-// Preload planet textures outside the rendering cycle to prevent CanvasLoader React render clashes
-PLANETS.forEach(planet => {
-  useTexture.preload(planet.textureUrl);
-});
-
-// Module-level variables to track scroll velocity for orbital acceleration
-let currentScrollVelocity = 0;
-let lastScrollY = 0;
-let lastScrollTime = 0;
-
-if (typeof window !== "undefined") {
-  lastScrollY = window.scrollY;
-  lastScrollTime = Date.now();
-
-  window.addEventListener("scroll", () => {
-    const now = Date.now();
-    const currentY = window.scrollY;
-    const timeDelta = Math.max(1, now - lastScrollTime);
-    const scrollDelta = Math.abs(currentY - lastScrollY);
-
-    // Calculate instantaneous scroll velocity (pixels per millisecond)
-    const velocity = scrollDelta / timeDelta;
-
-    // Add to velocity factor with smooth gain scaling
-    currentScrollVelocity += velocity * 0.9;
-
-    // Cap maximum scroll velocity to avoid extreme speeds
-    currentScrollVelocity = Math.min(currentScrollVelocity, 22.0);
-
-    lastScrollY = currentY;
-    lastScrollTime = now;
-  }, { passive: true });
-}
-
-interface PlanetMeshProps {
-  data: PlanetData;
-}
-
-const Planet: React.FC<PlanetMeshProps> = ({ data }) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const sphereRef = useRef<THREE.Mesh>(null);
-  const cloudsRef = useRef<THREE.Mesh>(null);
-  const angleRef = useRef(Math.random() * Math.PI * 2);
-
-  // Load the planet texture map synchronously inside Suspense
-  const texture = useTexture(data.textureUrl);
-
-  useFrame((state, delta) => {
-    if (!groupRef.current) return;
-
-    // Calculate orbital speed multiplier based on scroll velocity
-    const speedMultiplier = 1.0 + currentScrollVelocity * 1.6;
-
-    // Orbit orbital rotation
-    angleRef.current += data.speed * delta * 0.12 * speedMultiplier;
-    groupRef.current.position.x = Math.cos(angleRef.current) * data.orbitRadius;
-    groupRef.current.position.z = Math.sin(angleRef.current) * data.orbitRadius;
-
-    // Self-spin on axis (also scales slightly with scroll)
-    const spinMultiplier = 1.0 + currentScrollVelocity * 0.4;
-    if (sphereRef.current) {
-      sphereRef.current.rotation.y += delta * 0.25 * spinMultiplier;
-    }
-    if (cloudsRef.current) {
-      cloudsRef.current.rotation.y += delta * 0.38 * spinMultiplier;
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      {data.name === "Sun" ? (
-        // Glowing sun core with real map texture
-        <mesh ref={sphereRef}>
-          <sphereGeometry args={[data.radius, 32, 32]} />
-          <meshBasicMaterial map={texture} />
-        </mesh>
-      ) : (
-        // Planet sphere with real map texture and standard lighting physics
-        <mesh ref={sphereRef} castShadow receiveShadow>
-          <sphereGeometry args={[data.radius, 32, 32]} />
-          <meshStandardMaterial
-            map={texture}
-            roughness={data.roughness}
-            metalness={data.metalness}
-          />
-        </mesh>
-      )}
-
-      {/* Earth clouds */}
-      {data.hasClouds && (
-        <mesh ref={cloudsRef}>
-          <sphereGeometry args={[data.radius + 0.02, 32, 32]} />
-          <meshStandardMaterial
-            color="#ffffff"
-            transparent={true}
-            opacity={0.3}
-            blending={THREE.NormalBlending}
-          />
-        </mesh>
-      )}
-    </group>
-  );
-};
-
-const SceneController: React.FC = () => {
-  const { camera } = useThree();
-  const lookAtTargetRef = useRef(new THREE.Vector3(0, 0, 0));
-  const mouseLightRef = useRef<THREE.PointLight>(null);
-
-  useFrame((state, delta) => {
-    // Decay scroll velocity in the main frame loop
-    currentScrollVelocity = THREE.MathUtils.lerp(currentScrollVelocity, 0, delta * 3.0);
-
-    const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
-
-    // Continuous orbital camera angle + scroll panning rotation
-    const scrollAngle = state.clock.getElapsedTime() * 0.04 + (scrollY * 0.0006);
-    
-    // Angled cinematic top-down perspective that orbits the whole system
-    const targetCamX = Math.sin(scrollAngle) * 16.5;
-    const targetCamZ = Math.cos(scrollAngle) * 16.5;
-    const targetCamY = 7.5 + (scrollY * 0.0003); // very subtle camera rise
-
-    const targetCameraPos = new THREE.Vector3(targetCamX, targetCamY, targetCamZ);
-
-    // Easing camera target vectors towards the Sun (0, 0, 0)
-    camera.position.lerp(targetCameraPos, 0.04);
-    lookAtTargetRef.current.lerp(new THREE.Vector3(0, 0, 0), 0.04);
-    camera.lookAt(lookAtTargetRef.current);
-
-    // Mouse tracking specular point light
-    if (mouseLightRef.current) {
-      const { x, y } = state.pointer;
-      mouseLightRef.current.position.copy(lookAtTargetRef.current);
-      mouseLightRef.current.position.x += x * 6;
-      mouseLightRef.current.position.y += (y * 5) + 1.5;
-      mouseLightRef.current.position.z += 3;
-    }
-  });
-
-  return (
-    <>
-      <ambientLight intensity={0.25} />
-      
-      {/* Centered Sun point light emitting outwards to create realistic planet faces */}
-      <pointLight position={[0, 0, 0]} intensity={18} distance={35} castShadow />
-      
-      {/* Mouse reactive point light */}
-      <pointLight
-        ref={mouseLightRef}
-        position={[0, 0, 5]}
-        intensity={2.5}
-        distance={15}
-        color="#00d2ff"
-      />
-
-      <Particles />
-
-      {/* Orbit Rings indicators */}
-      {PLANETS.map((planet) => {
-        if (planet.name === "Sun") return null;
-        const ringGeo = new THREE.RingGeometry(planet.orbitRadius - 0.012, planet.orbitRadius + 0.012, 64);
-        return (
-          <mesh key={`orbit-${planet.name}`} rotation={[Math.PI / 2, 0, 0]} geometry={ringGeo}>
-            <meshBasicMaterial
-              color="#38bdf8"
-              side={THREE.DoubleSide}
-              transparent={true}
-              opacity={0.06}
-            />
-          </mesh>
-        );
-      })}
-
-      {/* Planets rendering */}
-      {PLANETS.map((planet) => (
-        <Planet key={planet.name} data={planet} />
-      ))}
-    </>
-  );
-};
-
 export const Scene3D: React.FC = () => {
-  const [isInViewport, setIsInViewport] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Track scroll velocity for interactive speed boost
+  const scrollVelocityRef = useRef(0);
+  const lastScrollYRef = useRef(0);
+  const lastScrollTimeRef = useRef(0);
 
-  // Performance Optimization: Viewport observer culling
   useEffect(() => {
-    if (typeof window === "undefined" || !containerRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsInViewport(entry.isIntersecting);
-      },
-      { threshold: 0.01 }
-    );
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    // Handle high-DPI screens
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    // Initialize columns
+    const fontSize = 11;
+    const columnsCount = Math.floor(canvas.width / 16);
+    
+    // Each column has position, speed, text snippet, character index, and opacity
+    const columns = Array.from({ length: columnsCount }, () => {
+      const snippet = CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)];
+      return {
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height, // start above the screen
+        speed: 1.0 + Math.random() * 2.2,
+        snippet: snippet,
+        charIndex: 0,
+        colorType: Math.random() > 0.5 ? "cyan" : "emerald",
+      };
+    });
+
+    // Track scroll velocity
+    lastScrollYRef.current = window.scrollY;
+    lastScrollTimeRef.current = Date.now();
+
+    const handleScroll = () => {
+      const now = Date.now();
+      const currentY = window.scrollY;
+      const timeDelta = Math.max(1, now - lastScrollTimeRef.current);
+      const scrollDelta = Math.abs(currentY - lastScrollYRef.current);
+      
+      const velocity = scrollDelta / timeDelta;
+      scrollVelocityRef.current += velocity * 1.5;
+      scrollVelocityRef.current = Math.min(scrollVelocityRef.current, 15.0); // Cap velocity boost
+
+      lastScrollYRef.current = currentY;
+      lastScrollTimeRef.current = now;
+    };
+    
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    let animationFrameId: number;
+
+    // Render loop
+    const render = () => {
+      // Very slight decay of scroll velocity back to baseline
+      scrollVelocityRef.current *= 0.95;
+      if (scrollVelocityRef.current < 0.05) scrollVelocityRef.current = 0;
+
+      // Draw dark semi-transparent overlay to create fading trails
+      ctx.fillStyle = "rgba(3, 7, 18, 0.08)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Set text parameters
+      ctx.font = `${fontSize}px "Consolas", "Courier New", monospace`;
+      
+      // Draw dynamic coding streams
+      columns.forEach((col) => {
+        // Calculate interactive speed multiplier
+        const currentSpeed = (col.speed + scrollVelocityRef.current * 1.8);
+        
+        // Advance stream down the screen
+        col.y += currentSpeed;
+
+        // Render snippet character-by-character along the y path
+        const charsToShow = Math.floor(Math.abs(col.y) / (fontSize * 1.2));
+        
+        for (let i = 0; i < charsToShow; i++) {
+          const charY = col.y - (i * fontSize * 1.2);
+          if (charY < 0 || charY > canvas.height) continue;
+
+          // Pick character from active snippet string
+          const char = col.snippet[(col.charIndex + i) % col.snippet.length];
+
+          // The head of the stream glows bright white (like movie matrix rain!)
+          if (i === 0) {
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = col.colorType === "cyan" ? "#06b6d4" : "#10b981";
+            ctx.shadowBlur = 8;
+          } else {
+            // Fade colors down the tail
+            const opacity = Math.max(0.05, 1.0 - (i / 18));
+            ctx.fillStyle = col.colorType === "cyan" 
+              ? `rgba(6, 182, 212, ${opacity * 0.45})` 
+              : `rgba(16, 185, 129, ${opacity * 0.45})`;
+            ctx.shadowBlur = 0;
+          }
+
+          ctx.fillText(char, col.x, charY);
+        }
+
+        // Reset column if it fully scrolls off the screen
+        if (col.y - (col.snippet.length * fontSize * 1.2) > canvas.height) {
+          col.x = Math.random() * canvas.width;
+          col.y = -50 - Math.random() * 200;
+          col.speed = 1.0 + Math.random() * 2.2;
+          col.snippet = CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)];
+          col.charIndex = Math.floor(Math.random() * col.snippet.length);
+          col.colorType = Math.random() > 0.5 ? "cyan" : "emerald";
+        }
+      });
+
+      // Draw high-tech CRT Scanlines Overlay
+      ctx.fillStyle = "rgba(3, 7, 18, 0.02)";
+      for (let y = 0; y < canvas.height; y += 4) {
+        ctx.fillRect(0, y, canvas.width, 1);
+      }
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(animationFrameId);
+    };
   }, []);
 
   return (
     <div
-      ref={containerRef}
-      className="fixed inset-0 w-full h-full -z-10 bg-transparent pointer-events-none no-print"
+      className="fixed inset-0 w-full h-full -z-20 bg-[#030712] pointer-events-none no-print overflow-hidden"
       aria-hidden="true"
     >
-      {isInViewport && (
-        <Canvas
-          shadows={{ type: THREE.PCFShadowMap }}
-          gl={{
-            powerPreference: "high-performance",
-            antialias: true,
-            alpha: true,
-          }}
-          camera={{ position: [0, 8, 14], fov: 60 }}
-        >
-          <Suspense fallback={<CanvasLoader />}>
-            <SceneController />
-          </Suspense>
-          <AdaptiveDpr pixelated />
-        </Canvas>
-      )}
+      {/* Background radial matrix glow for futuristic depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-black/80 z-0 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.03)_0%,transparent_75%)] z-0 pointer-events-none" />
+      
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full opacity-65 z-10"
+      />
     </div>
   );
 };
+
 export default Scene3D;
